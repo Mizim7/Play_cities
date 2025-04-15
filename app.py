@@ -1,17 +1,28 @@
+from flask import Flask, request, jsonify
 import random
 
+app = Flask(__name__)
 cities = [
-    {"name": "Москва", "image_id": "1656841/c3c7c3d3ede5671fc7a8"},
-    {"name": "Нью-Йорк", "image_id": "213044/c44387cecccecad7a422"},
-    {"name": "Париж", "image_id": "213044/ea67dc347261060c471c"}
+    {"name": "Москва", "image_id": "your_moscow_image_id"},
+    {"name": "Нью-Йорк", "image_id": "your_ny_image_id"},
+    {"name": "Париж", "image_id": "your_paris_image_id"}
 ]
 
+# Состояния диалога
 STATE_WELCOME = "welcome"
 STATE_GUESS_CITY = "guess_city"
 
 
+@app.route("/", methods=["POST"])
+def main():
+    data = request.json
+    response = handle_request(data)
+    return jsonify(response)
+
+
 def handle_request(request):
-    state = request["state"]["session_state"]
+    session_state = request.get("state", {}).get("session", {})
+    state = session_state.get("state")
     if not state:
         return welcome_handler(request)
     elif state == STATE_WELCOME:
@@ -21,8 +32,7 @@ def handle_request(request):
 
 
 def welcome_handler(request):
-    user_name = request["original_utterance"].lower()
-
+    user_name = request["request"]["original_utterance"].lower()
     session_state = {
         "user_name": user_name,
         "state": STATE_WELCOME
@@ -44,6 +54,7 @@ def welcome_handler(request):
 
 
 def start_game_handler(request):
+    # Выбираем случайный город
     selected_city = random.choice(cities)
     session_state = {
         "selected_city": selected_city["name"],
@@ -60,10 +71,10 @@ def start_game_handler(request):
                 "title": "Какой это город?"
             },
             "buttons": [
-                "Москва",
-                "Нью-Йорк",
-                "Париж",
-                "Не знаю"
+                {"title": "Москва", "hide": True},
+                {"title": "Нью-Йорк", "hide": True},
+                {"title": "Париж", "hide": True},
+                {"title": "Не знаю", "hide": True}
             ]
         },
         "session": {
@@ -76,7 +87,7 @@ def start_game_handler(request):
 
 def guess_city_handler(request):
     user_guess = request["request"]["original_utterance"].lower()
-    correct_answer = request["state"]["session_state"]["selected_city"]
+    correct_answer = request["state"]["session"]["selected_city"]
     if user_guess in correct_answer.lower():
         response_text = f"Правильно! Это действительно {correct_answer}. Хочешь сыграть ещё раз?"
         tts_text = f"Правильно! Это действительно {correct_answer}. Хочешь сыграть ещё раз?"
@@ -89,8 +100,8 @@ def guess_city_handler(request):
             "text": response_text,
             "tts": tts_text,
             "buttons": [
-                "Да",
-                "Нет"
+                {"title": "Да", "hide": True},
+                {"title": "Нет", "hide": True}
             ]
         },
         "session": {
@@ -101,14 +112,5 @@ def guess_city_handler(request):
     return response
 
 
-def main():
-    import json
-    import sys
-
-    request = json.loads(sys.stdin.read())
-    response = handle_request(request)
-    print(json.dumps(response))
-
-
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)
